@@ -1,0 +1,773 @@
+﻿<!DOCTYPE html>  <html lang="ms">  
+<head>  
+    <meta charset="UTF-8">  
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">  
+    <meta name="mobile-web-app-capable" content="yes">  
+    <meta name="apple-mobile-web-app-capable" content="yes">  
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">  <title>Z-PROFILE v9.0 | ULTIMATE STABLE</title>  
+<script src="https://cdn.tailwindcss.com"></script>  
+<style>  
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');  
+      
+    :root {  
+        --primary: #2563eb;  
+        --success: #10b981;  
+        --warning: #f59e0b;  
+        --danger: #ef4444;  
+    }  
+
+
+    body {   
+        font-family: 'Plus Jakarta Sans', sans-serif;   
+        background-color: #f1f5f9;  
+        overscroll-behavior-y: contain;  
+        -webkit-user-select: none;  
+        user-select: none;  
+    }  
+
+
+    /* Status Styling */  
+    .status-active { border-left: 6px solid var(--success); }  
+    .status-surveillance { border-left: 6px solid var(--warning); }  
+    .status-custody { border-left: 6px solid var(--primary); }  
+    .status-inactive { border-left: 6px solid #94a3b8; }  
+
+
+    /* Peta & Navigasi Touch */  
+    #mapViewport {  
+        width: 100vw;  
+        height: calc(100vh - 64px);  
+        overflow: hidden;  
+        touch-action: none;  
+        background: #cbd5e1;  
+        position: relative;  
+    }  
+
+
+    #mapCanvas {  
+        position: absolute;  
+        transform-origin: 0 0;  
+        will-change: transform;  
+        width: 4000px;  
+        height: 4000px;  
+    }  
+
+
+    .line-connection {  
+        stroke: #475569; stroke-width: 2.5; fill: none;  
+        stroke-dasharray: 8; animation: dash 12s linear infinite;  
+    }  
+
+
+    @keyframes dash { to { stroke-dashoffset: -160; } }  
+
+
+    /* Performance & Print */  
+    .no-scrollbar::-webkit-scrollbar { display: none; }  
+      
+    @media print {  
+        .no-print { display: none !important; }  
+        #reportOverlay { display: block !important; position: static !important; width: 100% !important; background: white; }  
+        .report-card { border: 1px solid #e2e8f0 !important; break-inside: avoid; margin-bottom: 25px; padding: 25px; border-radius: 15px; page-break-inside: avoid; }  
+    }  
+
+
+    /* Toast UI */  
+    #toast {  
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);  
+        z-index: 500;  
+    }  
+</style>
+
+
+</head>  
+<body class="min-h-screen">  <!-- Toast Notification -->  
+<div id="toast" class="fixed bottom-28 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-6 py-3 rounded-2xl shadow-2xl opacity-0 scale-90 pointer-events-none font-bold text-xs text-center min-w-[200px]"></div>  
+
+
+<!-- Processing Loader -->  
+<div id="globalLoader" class="fixed inset-0 z-[600] bg-slate-900/60 backdrop-blur-md hidden items-center justify-center flex-col">  
+    <div class="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>  
+    <p class="text-white text-[10px] font-black mt-4 tracking-widest uppercase">Memproses...</p>  
+</div>  
+
+
+<!-- Header -->  
+<header class="bg-slate-950 text-white p-4 sticky top-0 z-[100] no-print flex justify-between items-center shadow-lg border-b border-white/10">  
+    <div onclick="location.reload()" class="flex items-center gap-2 cursor-pointer">  
+        <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-black italic shadow-lg shadow-blue-500/20">Z</div>  
+        <h1 class="text-lg font-extrabold tracking-tighter">PROFILE <span class="text-blue-500">v9.0</span></h1>  
+    </div>  
+    <div class="flex items-center gap-2">  
+        <select id="synFilter" onchange="renderAll()" class="bg-slate-900 text-[10px] font-bold p-2 rounded-lg border-none focus:ring-1 focus:ring-blue-500 outline-none text-white max-w-[100px]">  
+            <option value="">SEMUA DATA</option>  
+        </select>  
+        <button onclick="toggleForm()" class="bg-blue-600 w-8 h-8 rounded-lg flex items-center justify-center font-black shadow-lg">✚</button>  
+<button onclick="logoutApp()" class="bg-red-600 w-8 h-8 rounded-lg flex items-center justify-center font-black shadow-lg text-white">⎋</button>
+    </div>  
+</header>  
+
+
+<!-- LOGIN -->  
+<div id="loginScreen" class="fixed inset-0 flex items-center justify-center bg-slate-900 z-[500]">
+    <div class="bg-white p-10 rounded-3xl w-80 text-center shadow-2xl">
+        <h2 class="text-xl font-black mb-6">Z-PROFILE ACCESS</h2>
+
+
+        <input type="password" id="loginPass"
+        placeholder="Masukkan Kata Laluan"
+        class="w-full p-4 border rounded-xl text-sm font-bold mb-4">
+
+
+        <button onclick="loginApp()"
+        class="w-full bg-blue-600 text-white p-4 rounded-xl font-black">
+        LOGIN
+        </button>
+
+
+        <p id="loginMsg" class="text-red-500 text-xs mt-3 hidden">
+        Kata Laluan Salah
+        </p>
+    </div>
+</div>
+
+
+<!-- PAPARAN UTAMA -->  
+<div id="mainView" class="no-print">  
+    <section class="p-4 grid grid-cols-2 md:grid-cols-4 gap-3 max-w-7xl mx-auto">  
+        <div class="bg-white p-5 rounded-[28px] shadow-sm border border-slate-200">  
+            <p class="text-slate-400 text-[8px] font-black uppercase tracking-widest">Saspek</p>  
+            <p class="text-3xl font-black" id="countTotal">0</p>  
+        </div>  
+        <div class="bg-slate-900 p-5 rounded-[28px] shadow-xl text-white">  
+            <p class="text-blue-400 text-[8px] font-black uppercase tracking-widest">Penerbangan</p>  
+            <p class="text-3xl font-black" id="countAir">0</p>  
+        </div>  
+        <button onclick="generateReport()" class="bg-white p-5 rounded-[28px] shadow-sm border border-slate-200 text-left active:scale-95 transition-transform">  
+            <p class="text-red-500 text-[8px] font-black uppercase">Laporan</p>  
+            <p class="text-xs font-black mt-1 uppercase">CETAK PDF →</p>  
+        </button>  
+        <button onclick="exportData()" class="bg-white p-5 rounded-[28px] shadow-sm border border-slate-200 text-left active:scale-95 transition-transform">  
+            <p class="text-blue-600 text-[8px] font-black uppercase">Backup</p>  
+            <p class="text-xs font-black mt-1 uppercase">SIMPAN FAIL ↓</p>  
+        </button>  
+    </section>  
+
+
+    <div class="px-4 max-w-7xl mx-auto mb-6">  
+        <input type="text" id="searchBox" oninput="renderList()" placeholder="Cari nama, IC, plat, MO..." class="w-full p-4 pl-12 rounded-[25px] border-none shadow-xl focus:ring-4 focus:ring-blue-500/10 outline-none text-sm font-bold bg-white">  
+        <div id="synTags" class="flex gap-2 overflow-x-auto no-scrollbar py-3 mt-2"></div>  
+    </div>  
+
+
+    <!-- Watchlist Alerts -->  
+    <div id="airWatchlist" class="px-4 mb-6 hidden max-w-7xl mx-auto space-y-2">  
+        <p class="text-[9px] font-black text-red-600 tracking-widest uppercase ml-1 flex items-center gap-2">  
+            <span class="w-2 h-2 rounded-full bg-red-600 animate-ping"></span> PANTAUAN UDARA (24 JAM)  
+        </p>  
+        <div id="watchlistContainer" class="space-y-2"></div>  
+    </div>  
+
+
+    <!-- Cards Container -->  
+    <main id="listView" class="px-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto pb-48"></main>  
+    <div id="emptyMsg" class="hidden text-center py-20 text-slate-300 font-black uppercase text-xs">Pangkalan Data Kosong</div>  
+</div>  
+
+
+<!-- RANGKAIAN (Pointer Event Zoom) -->  
+<div id="mapView" class="hidden fixed inset-0 top-[64px] z-[90] no-print overflow-hidden">  
+    <div id="mapViewport">  
+        <svg id="svgLines" class="absolute inset-0 w-full h-full pointer-events-none z-10"></svg>  
+        <div id="mapCanvas"></div>  
+          
+        <div class="absolute bottom-36 right-6 z-[100] flex flex-col gap-3">  
+            <button onclick="zoomBtn(1.2)" class="bg-white w-14 h-14 rounded-2xl shadow-2xl font-black text-2xl border active:scale-90">+</button>  
+            <button onclick="zoomBtn(0.8)" class="bg-white w-14 h-14 rounded-2xl shadow-2xl font-black text-2xl border active:scale-90">-</button>  
+            <button onclick="resetMap()" class="bg-slate-900 text-white p-4 rounded-2xl shadow-2xl text-[10px] font-black">RESET</button>  
+        </div>  
+
+
+        <div class="absolute top-6 left-6 z-[100] bg-white/90 backdrop-blur-md p-5 rounded-[30px] shadow-2xl border border-white/50 max-w-[200px]">  
+            <p class="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Visual Intelligence</p>  
+            <h3 class="text-[11px] font-black text-slate-800 uppercase truncate" id="mapStatus">Semua Hubungan</h3>  
+            <p class="text-[8px] text-blue-500 font-bold mt-2 uppercase italic">Cubit skrin untuk zum</p>  
+        </div>  
+    </div>  
+</div>  
+
+
+<!-- LAPORAN OVERLAY -->  
+<div id="reportOverlay" class="hidden fixed inset-0 z-[200] bg-white overflow-y-auto no-print">  
+    <div class="max-w-4xl mx-auto p-8 md:p-16">  
+        <div class="flex justify-between items-center mb-10 border-b-8 border-slate-900 pb-8 no-print">  
+            <button onclick="closeReport()" class="text-[10px] font-black uppercase bg-slate-100 px-6 py-3 rounded-2xl active:scale-95">Kembali</button>  
+            <button onclick="window.print()" class="text-[10px] font-black uppercase bg-blue-600 text-white px-8 py-3 rounded-2xl shadow-xl active:scale-95">Simpan PDF / Cetak</button>  
+        </div>  
+        <div id="reportArea"></div>  
+    </div>  
+</div>  
+
+
+<!-- BORANG PROFIL -->  
+<div id="formOverlay" class="fixed inset-0 bg-slate-950/98 backdrop-blur-xl z-[200] hidden items-center justify-center p-4 overflow-y-auto no-scrollbar">  
+    <div class="bg-white rounded-[45px] w-full max-w-xl p-8 md:p-12 shadow-2xl my-auto relative">  
+        <div class="flex justify-between items-center mb-8 border-b pb-4">  
+            <h2 class="text-xl font-black uppercase text-slate-900 tracking-tighter">Input Intelligent</h2>  
+            <button onclick="toggleForm()" class="text-slate-300 text-4xl font-light">&times;</button>  
+        </div>  
+        <form id="pForm" class="space-y-6">  
+            <input type="hidden" id="editId">  
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">  
+                <div class="relative rounded-[35px] aspect-square bg-slate-50 border-4 border-dashed border-slate-100 flex items-center justify-center overflow-hidden group">  
+                    <img id="imgPre" class="hidden absolute inset-0 w-full h-full object-cover">  
+                    <div id="imgIcon" class="text-4xl opacity-20">👤</div>  
+                    <input type="file" id="imgInput" accept="image/*" class="hidden" onchange="processImage(this)">  
+                    <label for="imgInput" class="absolute bottom-3 bg-slate-900 text-white px-5 py-2 rounded-xl text-[9px] font-black uppercase cursor-pointer shadow-xl">Kamera</label>  
+                    <input type="hidden" id="photoData">  
+                </div>  
+                <div class="md:col-span-2 space-y-4">  
+                    <input type="text" id="pSyn" placeholder="NAMA SINDIKET" required class="w-full p-4 bg-yellow-50 rounded-2xl font-black text-xs uppercase border border-yellow-100 outline-none focus:ring-2 focus:ring-yellow-400">  
+                    <input type="text" id="pName" placeholder="NAMA PENUH" required class="w-full p-4 bg-slate-100 rounded-2xl font-bold text-xs outline-none uppercase focus:ring-2 focus:ring-blue-500">  
+                    <div class="grid grid-cols-2 gap-3">  
+                        <input type="text" id="pIc" placeholder="NO. IC / KPT" class="p-3 bg-slate-100 rounded-xl text-xs font-bold outline-none">  
+                        <select id="pStatus" class="p-3 bg-slate-100 rounded-xl text-xs font-bold outline-none"><option>Aktif</option><option>Surveillance</option><option>Custody</option><option>Inactive</option></select>  
+                    </div>  
+                </div>  
+            </div>  
+
+
+            <div class="grid grid-cols-2 gap-4">  
+                <div class="space-y-1">  
+                    <label class="text-[9px] font-black text-slate-400 ml-1 uppercase">Peranan</label>  
+                    <select id="pRole" class="w-full p-4 bg-slate-100 rounded-2xl text-xs font-black outline-none uppercase shadow-sm">  
+                        <option>Ketua (Dalang)</option><option>Orang Kanan</option><option>Runner</option><option>Money Mule</option><option>Logistik</option><option>Informan</option>  
+                    </select>  
+                </div>  
+                <div class="space-y-1">  
+                    <label class="text-[9px] font-black text-indigo-600 ml-1 uppercase">Atasan</label>  
+                    <select id="pLeader" class="w-full p-4 bg-indigo-50 rounded-2xl text-xs font-black border border-indigo-100 outline-none uppercase"></select>  
+                </div>  
+            </div>  
+
+
+            <textarea id="pMo" rows="2" class="w-full p-5 bg-blue-50 border border-blue-100 rounded-[25px] text-xs font-medium outline-none" placeholder="Huraikan Modus Operandi (Cara Kerja)..."></textarea>  
+              
+            <div class="bg-slate-900 p-6 rounded-[35px] text-white">  
+                <p class="text-[10px] font-black text-blue-400 uppercase mb-4 tracking-widest">Rekod Penerbangan</p>  
+                <div id="formFlightList" class="space-y-2 mb-4 max-h-32 overflow-y-auto no-scrollbar"></div>  
+                <div class="grid grid-cols-2 gap-3">  
+                    <input type="text" id="fNo" placeholder="No. Flight" class="p-3 bg-slate-800 rounded-xl text-xs uppercase font-bold text-white outline-none">  
+                    <select id="fAir" class="p-3 bg-slate-800 rounded-xl text-[10px] font-bold text-white outline-none"><option value="">Airport</option><option>KLIA1</option><option>KLIA2</option><option>MIRI</option><option>KK</option></select>  
+                </div>  
+                <button type="button" onclick="addFlight()" class="w-full mt-3 bg-blue-600 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95">TAMBAH REKOD TERBANG</button>  
+                <input type="datetime-local" id="fTime" class="hidden"> <!-- Hidden but used by script -->  
+            </div>  
+
+
+            <div class="grid grid-cols-2 gap-4">  
+                <input type="text" id="pPlat" placeholder="PLAT KERETA" class="p-4 bg-slate-100 rounded-2xl text-xs font-bold uppercase outline-none">  
+                <input type="text" id="pTel" placeholder="NO. TELEFON" class="p-4 bg-slate-100 rounded-2xl text-xs font-bold outline-none uppercase">  
+            </div>  
+              
+            <button type="submit" id="saveBtn" class="w-full bg-slate-950 text-white py-6 rounded-[35px] font-black shadow-2xl uppercase tracking-[0.2em] active:scale-95 transition-all">SIMPAN PROFIL</button>  
+        </form>  
+    </div>  
+</div>  
+
+
+<!-- Navigation Bawah -->  
+<nav class="fixed bottom-8 left-1/2 -translate-x-1/2 bg-slate-950/95 backdrop-blur-2xl px-12 py-5 rounded-full shadow-2xl flex items-center gap-16 z-[150] no-print border border-white/10">  
+    <button onclick="switchTo('list')" class="text-blue-500 font-black text-[10px] uppercase tracking-wider" id="navL">Senarai</button>  
+    <button onclick="toggleForm()" class="bg-blue-600 w-16 h-16 flex items-center justify-center rounded-full -mt-20 border-[8px] border-slate-950 shadow-2xl text-white font-black text-2xl active:scale-90 transition-all">✚</button>  
+    <button onclick="switchTo('map')" class="text-white opacity-40 font-black text-[10px] uppercase tracking-wider" id="navM">Peta</button>  
+</nav>  
+
+
+<script>  
+      // --- DATA ENGINE ---  
+const APP_PASSWORD = "intel123";
+
+
+if(localStorage.getItem("z_login") === "ok"){
+    document.getElementById("loginScreen").style.display="none";
+}
+
+
+function loginApp(){
+
+
+    const pass = document.getElementById("loginPass").value;
+
+
+    if(pass === APP_PASSWORD){
+
+
+    localStorage.setItem("z_login","ok");
+
+
+    document.getElementById("loginScreen").style.display="none";
+
+
+    notify("Akses Dibenarkan");
+
+
+    }else{
+
+
+        document.getElementById("loginMsg").classList.remove("hidden");
+
+
+    }
+
+
+}
+ 
+    const STORE_KEY = 'z_intel_v9_master_stable';  
+    let suspects = JSON.parse(localStorage.getItem(STORE_KEY)) || [];  
+    let curF = [];  
+    let map = { s: 0.8, x: 0, y: 0 };  
+    let pointers = new Map();  
+
+
+    function notify(m) {  
+        const t = document.getElementById("toast");  
+        t.innerText = m; t.style.opacity = "1"; t.style.transform = "translateX(-50%) scale(1)";  
+        setTimeout(() => { t.style.opacity = "0"; t.style.transform = "translateX(-50%) scale(0.9)"; }, 2500);  
+    }  
+
+
+    function loader(show) { document.getElementById('globalLoader').style.display = show ? 'flex' : 'none'; }  
+
+
+    function saveDB() {  
+        try {  
+            localStorage.setItem(STORE_KEY, JSON.stringify(suspects));  
+            renderAll();  
+        } catch(e) {  
+            alert("Ralat Storan: Memori telefon anda penuh. Sila padam profil yang tidak diperlukan.");  
+        }  
+    }  
+
+
+    // --- IMAGE ENGINE (COMPRESSION IS KEY) ---  
+    async function processImage(input) {  
+        const file = input.files[0]; if(!file) return;  
+        loader(true);  
+        const reader = new FileReader();  
+        reader.onload = e => {  
+            const img = new Image();  
+            img.onload = () => {  
+                const canvas = document.createElement('canvas');  
+                const MAX = 350; // Smaller width for mobile efficiency  
+                let w = img.width, h = img.height;  
+                if(w > h) { if(w > MAX){ h *= MAX/w; w = MAX; } }  
+                else { if(h > MAX){ w *= MAX/h; h = MAX; } }  
+                canvas.width = w; canvas.height = h;  
+                const ctx = canvas.getContext('2d');  
+                ctx.drawImage(img, 0, 0, w, h);  
+                const base64 = canvas.toDataURL('image/jpeg', 0.4); // 40% quality = Very small file size  
+                document.getElementById('photoData').value = base64;  
+                document.getElementById('imgPre').src = base64;  
+                document.getElementById('imgPre').classList.remove('hidden');  
+                document.getElementById('imgIcon').classList.add('hidden');  
+                loader(false);  
+            };  
+            img.src = e.target.result;  
+        };  
+        reader.readAsDataURL(file);  
+    }  
+
+
+    // --- FORM & DATA ---  
+    function toggleForm() {  
+        const el = document.getElementById('formOverlay');  
+        el.classList.toggle('hidden');  
+        if(!el.classList.contains('hidden')) {  
+            const currentSyn = document.getElementById('pSyn').value.toUpperCase();  
+            populateLeaders(currentSyn);  
+        } else {  
+            document.getElementById('pForm').reset();  
+            document.getElementById('editId').value = '';  
+            document.getElementById('photoData').value = '';  
+            document.getElementById('imgPre').classList.add('hidden');  
+            document.getElementById('imgIcon').classList.remove('hidden');  
+            curF = []; renderFormFlights();  
+        }  
+    }  
+
+
+    function addFlight() {  
+        const no = document.getElementById('fNo').value.toUpperCase();  
+        const air = document.getElementById('fAir').value;  
+        // For simple HP entry, we'll use a prompt for time if needed or just use current  
+        const time = prompt("Sila sahkan Tarikh/Masa (YYYY-MM-DD HH:MM):", new Date().toISOString().slice(0,16).replace('T', ' '));  
+        if(!no || !time) return;  
+        curF.push({ id: Date.now(), no, air, time: new Date(time).toISOString() });  
+        document.getElementById('fNo').value = ''; renderFormFlights();  
+    }  
+
+
+    function renderFormFlights() {  
+        const c = document.getElementById('formFlightList');  
+        c.innerHTML = curF.map(f => `<div class="bg-white/5 p-2 rounded-lg flex justify-between text-[9px] border border-white/10"><span>✈️ ${f.no} (${f.air}) - ${new Date(f.time).toLocaleString()}</span><button type="button" onclick="curF=curF.filter(x=>x.id!=${f.id});renderFormFlights();" class="text-red-500 font-black">X</button></div>`).join('');  
+    }  
+
+
+    function populateLeaders(syn) {  
+        const sel = document.getElementById('pLeader');  
+        const eId = document.getElementById('editId').value;  
+        sel.innerHTML = '<option value="">-- TIADA / INDEPENDENT --</option>';  
+        suspects.filter(t => t.id !== eId && t.syndicateName === syn).forEach(t => {  
+            sel.innerHTML += `<option value="${t.id}">${t.name}</option>`;  
+        });  
+    }  
+
+
+    document.getElementById('pForm').addEventListener('submit', e => {  
+        e.preventDefault();  
+        loader(true);  
+          
+        // Critical fix for Save Function  
+        setTimeout(() => {  
+            const id = document.getElementById('editId').value || Date.now().toString();  
+            const data = {
+    id,
+    syndicateName: document.getElementById('pSyn').value.trim().toUpperCase(),
+    name: document.getElementById('pName').value.trim().toUpperCase(),
+    ic: document.getElementById('pIc').value,
+    status: document.getElementById('pStatus').value,
+    role: document.getElementById('pRole').value,
+    leaderId: document.getElementById('pLeader').value,
+    modus: document.getElementById('pMo').value,
+    flights: [...curF],
+    phone: document.getElementById('pTel').value,
+    vehicle: document.getElementById('pPlat').value,
+    photo: document.getElementById('photoData').value,
+    ts: new Date().toISOString()
+};
+
+
+            const idx = suspects.findIndex(t => t.id === id);  
+            if(idx > -1) suspects[idx] = data; else suspects.unshift(data);  
+
+
+            saveDB();  
+            loader(false);  
+            toggleForm();  
+            notify("Profil Disimpan.");  
+        }, 300);  
+    });  
+
+
+    // --- MAP ENGINE (v9.0 HYBRID) ---  
+    function switchTo(v) {  
+        document.getElementById('mainView').classList.toggle('hidden', v === 'map');  
+        document.getElementById('mapView').classList.toggle('hidden', v !== 'map');  
+        document.getElementById('navM').classList.toggle('opacity-40', v !== 'map');  
+        document.getElementById('navM').classList.toggle('text-blue-500', v === 'map');  
+        document.getElementById('navL').classList.toggle('opacity-40', v === 'map');  
+        document.getElementById('navL').classList.toggle('text-blue-500', v !== 'map');  
+        if(v === 'map') renderMap(); else renderList();  
+    }  
+
+
+    function renderMap() {  
+        const canvas = document.getElementById('mapCanvas');  
+        const filter = document.getElementById('synFilter').value;  
+        canvas.innerHTML = '';  
+        document.getElementById('mapStatus').innerText = filter || 'Semua Rangkaian';  
+          
+        const filtered = filter ? suspects.filter(t => t.syndicateName === filter) : suspects;  
+        const roots = filtered.filter(t => !t.leaderId || !filtered.some(f => f.id == t.leaderId));  
+
+
+        const drawNode = (s, x, y) => {  
+            const node = document.createElement('div');  
+            node.className = `absolute bg-white rounded-[30px] p-4 shadow-2xl border-4 ${s.status==='Aktif'?'border-green-500':'border-slate-300'} w-48 text-center`;  
+            node.style.left = `${x}px`; node.style.top = `${y}px`; node.id = `node-${s.id}`;  
+            node.onclick = () => editTarget(s.id);  
+            node.innerHTML = `<span class="bg-yellow-400 text-[7px] font-black px-2 py-0.5 rounded uppercase mb-1 inline-block">${s.syndicateName}</span><p class="text-[10px] font-black uppercase truncate">${s.name}</p><p class="text-[8px] font-bold text-slate-400 uppercase">${s.role}</p>`;  
+            canvas.appendChild(node);  
+            const kids = filtered.filter(c => c.leaderId == s.id);  
+            if(kids.length > 0) {  
+                const sp = 280; let stX = x - ((kids.length-1)*sp)/2;  
+                kids.forEach((c, i) => drawNode(c, stX + (i*sp), y + 220));  
+            }  
+        };  
+
+
+        roots.forEach((r, i) => drawNode(r, 800 + (i*1000), 100));  
+        setTimeout(drawMapLines, 100);  
+        resetMap();  
+    }  
+
+
+    function drawMapLines() {  
+        const svg = document.getElementById('svgLines'); svg.innerHTML = '';  
+        const filter = document.getElementById('synFilter').value;  
+        const filtered = filter ? suspects.filter(t => t.syndicateName === filter) : suspects;  
+        filtered.forEach(t => {  
+            if(t.leaderId) {  
+                const from = document.getElementById(`node-${t.leaderId}`);  
+                const to = document.getElementById(`node-${t.id}`);  
+                if(from && to) {  
+                    const fr = from.getBoundingClientRect(), tr = to.getBoundingClientRect();  
+                    const vr = document.getElementById('mapViewport').getBoundingClientRect();  
+                    const x1 = (fr.left + fr.width/2 - vr.left) / map.s - map.x/map.s;  
+                    const y1 = (fr.top + fr.height - vr.top) / map.s - map.y/map.s;  
+                    const x2 = (tr.left + tr.width/2 - vr.left) / map.s - map.x/map.s;  
+                    const y2 = (tr.top - vr.top) / map.s - map.y/map.s;  
+                    const p = document.createElementNS("http://www.w3.org/2000/svg", "path");  
+                    p.setAttribute("d", `M ${x1} ${y1} C ${x1} ${y1+60}, ${x2} ${y2-60}, ${x2} ${y2}`);  
+                    p.setAttribute("class", "line-connection"); svg.appendChild(p);  
+                }  
+            }  
+        });  
+    }  
+
+
+    // --- POINTER EVENT ENGINE (ADVANCED HP ZOOM) ---  
+    const vp = document.getElementById('mapViewport');  
+    const canv = document.getElementById('mapCanvas');  
+
+
+    vp.addEventListener('pointerdown', e => {  
+        pointers.set(e.pointerId, e);  
+        if(pointers.size === 1) { vp.style.cursor = 'grabbing'; }  
+    });  
+
+
+    vp.addEventListener('pointermove', e => {  
+        if(!pointers.has(e.pointerId)) return;  
+        const prev = pointers.get(e.pointerId);  
+        pointers.set(e.pointerId, e);  
+
+
+        if(pointers.size === 1) {  
+            map.x += e.clientX - prev.clientX;  
+            map.y += e.clientY - prev.clientY;  
+        } else if(pointers.size === 2) {  
+            const pts = Array.from(pointers.values());  
+            const d1 = Math.hypot(pts[0].clientX - pts[1].clientX, pts[0].clientY - pts[1].clientY);  
+            const d2 = Math.hypot(prev.clientX - pts[1].clientX, prev.clientY - pts[1].clientY);  
+            if(d2 > 0) map.s = Math.min(2, Math.max(0.1, map.s * (d1 / d2)));  
+        }  
+        updateMap();  
+    });  
+
+
+    vp.addEventListener('pointerup', e => { pointers.delete(e.pointerId); if(pointers.size < 1) vp.style.cursor = 'grab'; });  
+    vp.addEventListener('pointercancel', e => pointers.delete(e.pointerId));  
+
+
+    function updateMap() { canv.style.transform = `translate(${map.x}px, ${map.y}px) scale(${map.s})`; drawMapLines(); }  
+    function zoomBtn(v) { map.s = Math.min(2, Math.max(0.1, map.s * v)); updateMap(); }  
+    function resetMap() { map.s = 0.5; map.x = 20; map.y = 20; updateMap(); }  
+
+
+    // --- EXPORT & BACKUP (ANTI-FREEZE) ---  
+    function exportData() {  
+        loader(true);  
+        setTimeout(() => {  
+            const blob = new Blob([JSON.stringify(suspects)], { type: 'application/json' });  
+            const url = URL.createObjectURL(blob);  
+            const a = document.createElement('a'); a.href = url;  
+            a.download = `ZPRO_BACKUP_${new Date().toISOString().slice(0,10)}.json`; a.click();  
+            loader(false); notify("Backup Selesai.");  
+        }, 500);  
+    }  
+
+
+    function importData(inp) {  
+        const f = inp.files[0]; if(!f) return;  
+        const r = new FileReader();  
+        r.onload = e => { suspects = JSON.parse(e.target.result); saveDB(); notify("Data Dipulihkan."); };  
+        r.readAsText(f);  
+    }  
+
+
+    // --- REPORTING ---  
+    function generateReport() {  
+        const f = document.getElementById('synFilter').value;  
+        const filtered = f ? suspects.filter(t => t.syndicateName === f) : suspects;  
+        if(filtered.length === 0) return alert("Tiada data.");  
+
+
+        loader(true);  
+        setTimeout(() => {  
+            const overlay = document.getElementById('reportOverlay');  
+            const area = document.getElementById('reportArea');  
+            overlay.classList.remove('hidden');  
+              
+            area.innerHTML = `  
+                <div class="border-b-[10px] border-slate-950 pb-8 mb-12">  
+                    <h1 class="text-5xl font-black uppercase text-slate-900 leading-none tracking-tighter">Case Intel Dossier</h1>  
+                    <p class="text-sm font-bold text-slate-400 mt-4 uppercase tracking-[0.3em]">SULIT & RASMI v9.0</p>  
+                </div>  
+                <div class="space-y-10">  
+                    ${filtered.map(t => `  
+                        <div class="report-card border-2 border-slate-100 p-10 rounded-[40px] bg-white">  
+                            <div class="flex gap-10 border-b pb-8 mb-8">  
+                                <div class="h-32 w-32 bg-slate-50 rounded-[35px] overflow-hidden border shadow-xl flex-shrink-0">  
+                                    ${t.photo ? `<img src="${t.photo}" class="w-full h-full object-cover">` : '<div class="w-full h-full flex items-center justify-center text-slate-200">👤</div>'}  
+                                </div>  
+                                <div class="flex-1">  
+                                    <h2 class="text-3xl font-black uppercase text-slate-900 leading-tight">${t.name}</h2>  
+                                    <div class="flex gap-2 mt-3">  
+                                        <span class="bg-yellow-400 text-yellow-950 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest">${t.syndicateName}</span>  
+                                        <span class="bg-slate-950 text-white px-3 py-1 rounded-lg text-[10px] font-black uppercase">${t.status}</span>  
+                                    </div>  
+                                    <p class="text-[11px] font-bold text-slate-400 mt-5 uppercase">ID PENGENALAN: ${t.ic||'N/A'}</p>  
+                                </div>  
+                            </div>  
+                            <div class="grid grid-cols-2 gap-12 text-[11px] font-bold uppercase tracking-tight">  
+                                <div>  
+                                    <p class="text-blue-600 mb-2 font-black uppercase tracking-widest text-[9px]">Analisis Modus Operandi</p>  
+                                    <p class="bg-slate-50 p-6 rounded-[30px] normal-case font-medium italic text-slate-700 leading-relaxed border">"${t.modus || 'Tiada strategi direkodkan.'}"</p>  
+                                </div>  
+                                <div>  
+                                    <p class="text-slate-950 underline mb-4 text-[10px] font-black uppercase">Garis Masa Pergerakan Udara</p>  
+                                    <div class="space-y-3 border-l-2 pl-6 border-slate-100">  
+                                        ${(t.flights||[]).map(fh=>`  
+                                            <div class="relative">  
+                                                <div class="absolute -left-[31px] top-1.5 h-2.5 w-2.5 rounded-full bg-slate-300"></div>  
+                                                <p class="font-black text-slate-800 uppercase">${fh.no} • ${fh.air}</p>  
+                                                <p class="text-slate-400 italic">${new Date(fh.time).toLocaleString('ms-MY')}</p>  
+                                            </div>  
+                                        `).join('') || '<p class="text-slate-300 normal-case">Tiada rekod dikesan.</p>'}  
+                                    </div>  
+                                </div>  
+                            </div>  
+                        </div>  
+                    `).join('')}  
+                </div>  
+            `;  
+            loader(false);  
+        }, 600);  
+    }  
+
+
+    function closeReport() { document.getElementById('reportOverlay').classList.add('hidden'); }  
+
+
+    // --- RENDER LIST ---  
+    function renderList() {  
+        const list = document.getElementById('listView');  
+        const search = document.getElementById('searchBox').value.toLowerCase();  
+        const filter = document.getElementById('synFilter').value;  
+        const now = new Date();  
+
+
+        const filtered = suspects.filter(t => 
+    ((t.name || "").toLowerCase().includes(search) ||
+    (t.ic || "").toLowerCase().includes(search) ||
+    (t.phone || "").toLowerCase().includes(search) ||
+    (t.vehicle || "").toLowerCase().includes(search)) &&
+    (filter === "" || t.syndicateName === filter)
+);
+        document.getElementById('countTotal').innerText = suspects.length;  
+
+
+        const imminent = suspects.filter(t => (t.flights || []).some(f => {  
+            const diff = (new Date(f.time) - now) / (1000*60*60); return diff > 0 && diff <= 24;  
+        }));  
+        document.getElementById('countAir').innerText = imminent.length;  
+
+
+        if(imminent.length > 0) {  
+            document.getElementById('airWatchlist').classList.remove('hidden');  
+            document.getElementById('watchlistContainer').innerHTML = imminent.map(t => `<div class="bg-red-700 text-white p-4 rounded-[25px] flex justify-between items-center shadow-lg"><p class="text-[11px] font-black uppercase truncate">${t.name}</p><button onclick="editTarget('${t.id}')" class="bg-white text-red-700 px-4 py-1.5 rounded-xl text-[10px] font-black">EDIT</button></div>`).join('');  
+        } else document.getElementById('airWatchlist').classList.add('hidden');  
+
+
+        if(filtered.length === 0) { document.getElementById('emptyMsg').classList.remove('hidden'); list.innerHTML = ''; return; }  
+        document.getElementById('emptyMsg').classList.add('hidden');  
+
+
+        list.innerHTML = filtered.map(t => {  
+            const isAlert = (t.flights || []).some(f => { const diff = (new Date(f.time) - now) / (1000*60*60); return diff > 0 && diff <= 24; });  
+            const latest = (t.flights || []).sort((a,b) => new Date(b.time) - new Date(a.time))[0];  
+            return `<div class="bg-white rounded-[40px] p-8 shadow-sm border ${t.status==='Aktif'?'status-active':'status-surveillance'} relative overflow-hidden transition-all ${isAlert?'flight-alert':''} active:scale-95">  
+                <div class="flex gap-4 mb-4">  
+                    ${t.photo ? `<img src="${t.photo}" class="h-16 w-16 rounded-2xl object-cover shadow-lg border">` : `<div class="h-16 w-16 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-300">👤</div>`}  
+                    <div class="flex-1 min-w-0">  
+                        <span class="bg-yellow-400 text-[8px] font-black px-2 py-0.5 rounded uppercase mb-1 inline-block shadow-sm">${t.syndicateName}</span>  
+                        <h3 class="font-black text-slate-800 uppercase text-xs truncate leading-none mt-1">${t.name}</h3>  
+                        <p class="text-[8px] font-bold text-slate-400 uppercase mt-1 tracking-tight">${t.role} • ${t.ic||'ID N/A'}</p>  
+                    </div>  
+                </div>  
+                ${latest ? `<div class="bg-slate-950 p-2.5 rounded-xl text-white mb-4 flex justify-between items-center"><p class="text-[9px] font-black text-blue-400 uppercase">✈️ ${latest.no}</p><p class="text-[8px] opacity-60 uppercase">${new Date(latest.time).toLocaleDateString()}</p></div>` : ''}  
+                <div class="text-[10px] text-slate-500 bg-slate-50 p-3 rounded-2xl mb-4 italic line-clamp-2 border border-slate-100">${t.modus || 'Tiada MO direkodkan.'}</div>  
+                <div class="flex justify-between items-center pt-3 border-t">  
+                    <span class="text-[8px] font-black opacity-30 uppercase">${new Date(t.ts).toLocaleDateString()}</span>  
+                    <div class="flex gap-2">  
+                         <button onclick="editTarget('${t.id}')" class="p-2.5 bg-blue-50 text-blue-600 rounded-xl font-bold text-[10px] active:bg-blue-600 active:text-white uppercase transition-colors">Edit</button>  
+                         <button onclick="deleteTarget('${t.id}')" class="p-2.5 bg-red-50 text-red-500 rounded-xl font-bold text-[10px] active:bg-red-600 active:text-white uppercase transition-colors">Padam</button>  
+                    </div>  
+                </div>  
+            </div>`;  
+        }).join('');  
+    }  
+
+
+    function renderAll() {  
+        const sel = document.getElementById('synFilter'); const tag = document.getElementById('synTags');  
+        const syns = [...new Set(suspects.map(t => t.syndicateName))].sort();  
+        sel.innerHTML = '<option value="">SEMUA GENG</option>';  
+        tag.innerHTML = '';  
+        syns.forEach(s => { if(!s) return; sel.innerHTML += `<option value="${s}">${s}</option>`; tag.innerHTML += `<button onclick="setSyn('${s}')" class="px-5 py-2 bg-white border rounded-full text-[9px] font-black uppercase whitespace-nowrap shadow-sm active:bg-blue-600 active:text-white">${s}</button>`; });  
+        renderList();  
+    }  
+
+
+    function setSyn(v) { document.getElementById('synFilter').value = v; renderAll(); }  
+
+
+    function editTarget(id) {  
+        const t = suspects.find(x => x.id == id); if(!t) return;  
+        if(document.getElementById('reportOverlay').classList.contains('hidden') === false) closeReport();  
+        toggleForm();  
+        document.getElementById('editId').value = t.id;  
+        document.getElementById('pSyn').value = t.syndicateName;  
+        document.getElementById('pName').value = t.name;  
+        document.getElementById('pIc').value = t.ic || '';  
+        document.getElementById('pStatus').value = t.status;  
+        document.getElementById('pRole').value = t.role;  
+        document.getElementById('pMo').value = t.modus || '';  
+
+
+        document.getElementById('pTel').value = t.phone || '';
+
+
+document.getElementById('pPlat').value = t.vehicle || '';
+        curF = t.flights || []; renderFormFlights();  
+        if(t.photo) {  
+            document.getElementById('photoData').value = t.photo;  
+            document.getElementById('imgPre').src = t.photo;  
+            document.getElementById('imgPre').classList.remove('hidden');  
+            document.getElementById('imgIcon').classList.add('hidden');  
+        }  
+        populateLeaders(t.syndicateName);  
+        document.getElementById('pLeader').value = t.leaderId || "";  
+    }  
+
+
+    function deleteTarget(id) { if(confirm("Padam saspek?")) { suspects = suspects.filter(x => x.id != id); saveDB(); notify("Terpadam."); } }  
+
+
+    // Start  
+    renderAll();  
+    setInterval(renderList, 60000);  
+    window.addEventListener('resize', () => { if(!document.getElementById('mapView').classList.contains('hidden')) drawMapLines(); });  
+
+
+function logoutApp(){
+    localStorage.removeItem("z_login");
+    location.reload();
+}
+</script>
+
+
+</body>  
+</html>
